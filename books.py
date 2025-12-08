@@ -1,6 +1,6 @@
 # Author : 문은영
 # Revision : 2025-03-31
-# Modified : 2025-06-26 (리팩터링: 파일 단일화, 속도 개선, 폰트 확대, 실시간 파일 감시, 전화번호 자동정리, ESC 닫기)
+# Modified : 2025-12-08
 
 import pandas as pd
 import tkinter as tk
