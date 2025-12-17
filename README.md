@@ -41,7 +41,6 @@
 - Python 3.9 이상
 - 필요한 패키지 설치: python search_program.py
 
----
 ### 3. 실행 방법 
 #### Python
 pip install pandas
