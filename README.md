@@ -47,17 +47,17 @@ pip install pandas
 python books.py
 
 #### exe 파일로 빌드하기
-```
 1. PyInstaller 설치
-pip install pyinstaller
+```pip install pyinstaller```
 2. exe 생성
-pyinstaller --onefile --noconsole books.py
+```pyinstaller --onefile --noconsole books.py```
 3. 결과물
+```
 dist
 └── books.exe
 ```
 books.exe와 북돋움관리대장.xlsx를 같은 폴더에 두고 실행
-
+```
 ---
 
 ## 📄 업데이트 로그
