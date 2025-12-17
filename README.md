@@ -47,12 +47,12 @@ pip install pandas
 python books.py
 
 #### exe 파일로 빌드하기
+'''
 1. PyInstaller 설치
 pip install pyinstaller
 2. exe 생성
 pyinstaller --onefile --noconsole books.py
 3. 결과물
-```
 dist
 └── books.exe
 ```
