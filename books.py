@@ -1,13 +1,13 @@
 # Author : 문은영
 # Revision : 2025-03-31
-# Modified : 2025-12-08
+# Modified : 2025-12-17
 
 import pandas as pd
 import tkinter as tk
 from tkinter import ttk, messagebox
 import tkinter.font as tkFont
-import threading
-import time
+# import threading
+# import time
 import os
 import re
 
@@ -15,7 +15,6 @@ import re
 # 설정
 # ============================================================
 file_path = '북돋움관리대장.xlsx'
-sheet_name = 'Sheet1'
 
 df = None
 last_mtime = None
@@ -59,57 +58,108 @@ tkFont.nametofont("TkFixedFont").configure(size=12)
 # 엑셀 로딩
 # ============================================================
 def load_excel():
-    """엑셀 파일 불러오기"""
+    """엑셀 파일의 모든 시트를 불러오기"""
     global df, last_mtime
 
     try:
-        df_local = pd.read_excel(file_path, sheet_name=sheet_name, dtype=str)
-        df_local.columns = df_local.columns.str.strip()
+        excel = pd.ExcelFile(file_path)
+        all_dfs = []
 
-        # 생년월일 자리수 정리
-        if '생년월일' in df_local.columns:
-            df_local['생년월일'] = df_local['생년월일'].astype(str).str.zfill(6)
+        for sheet in excel.sheet_names:
+            # 연도 시트만 처리 (2024년, 2025년, 2026년)
+            if not re.match(r"20\d{2}년", sheet):
+                continue
 
-        # 전화번호 자동 변환
-        if "연락처" in df_local.columns:
-            df_local["연락처"] = df_local["연락처"].apply(format_phone)
+            year = sheet[:4]  # 2024, 2025 ...
+            year_label = f"{year[2:]}년도신청자"
 
-        df = df_local
+            temp_df = pd.read_excel(excel, sheet_name=sheet, dtype=str)
+            temp_df.columns = temp_df.columns.str.strip()
+
+            # ✔ 컬럼 문자열 보장
+            temp_df.columns = temp_df.columns.map(str).str.strip()
+
+            # ✔ 완전히 빈 시트 방어
+            if temp_df.empty:
+                continue
+
+            # 신청년도 컬럼 추가
+            temp_df["신청년도"] = year_label
+
+            # 생년월일 자리수 정리
+            if '생년월일' in temp_df.columns:
+                temp_df['생년월일'] = temp_df['생년월일'].astype(str).str.zfill(6)
+
+            # 전화번호 자동 변환
+            if "연락처" in temp_df.columns:
+                temp_df["연락처"] = temp_df["연락처"].apply(format_phone)
+
+            all_dfs.append(temp_df)
+
+        # df = pd.concat(all_dfs, ignore_index=True)
+        if all_dfs:
+            df = pd.concat(all_dfs, ignore_index=True)
+        else:
+            df = pd.DataFrame()
+
         last_mtime = os.path.getmtime(file_path)
 
     except FileNotFoundError:
         messagebox.showerror("파일 오류", f"엑셀 파일을 찾을 수 없습니다:\n{file_path}")
         root.destroy()
         exit()
+    if not all_dfs:
+        messagebox.showerror("엑셀 오류", "20XX년 형식의 시트를 찾을 수 없습니다.")
+        root.destroy()
+        return
+    # 검색 컬럼만 소문자 캐싱
+    for col in df.columns:
+        df[col] = df[col].astype(str)
+
+
 
 
 # ============================================================
 # 파일 변경 실시간 감시
 # ============================================================
-def watch_file():
-    global df, last_mtime
+# def watch_file():
+#     global df, last_mtime
 
-    while True:
-        time.sleep(1)
-        try:
-            current_mtime = os.path.getmtime(file_path)
-            if last_mtime is None or current_mtime != last_mtime:
+#     while True:
+#         time.sleep(1)
+#         try:
+#             current_mtime = os.path.getmtime(file_path)
+#             if last_mtime is None or current_mtime != last_mtime:
 
-                df_local = pd.read_excel(file_path, sheet_name=sheet_name, dtype=str)
-                df_local.columns = df_local.columns.str.strip()
+#                 excel = pd.ExcelFile(file_path)
+#                 all_dfs = []
 
-                if '생년월일' in df_local.columns:
-                    df_local['생년월일'] = df_local['생년월일'].astype(str).str.zfill(6)
+#                 for sheet in excel.sheet_names:
+#                     if not re.match(r"20\d{2}년", sheet):
+#                         continue
 
-                # 전화번호 자동 변환
-                if "연락처" in df_local.columns:
-                    df_local["연락처"] = df_local["연락처"].apply(format_phone)
+#                     year = sheet[:4]
+#                     year_label = f"{year[2:]}년도신청자"
 
-                df = df_local
-                last_mtime = current_mtime
+#                     temp_df = pd.read_excel(excel, sheet_name=sheet, dtype=str)
+#                     temp_df.columns = temp_df.columns.str.strip()
+#                     temp_df["신청년도"] = year_label
 
-        except Exception:
-            pass
+#                     if '생년월일' in temp_df.columns:
+#                         temp_df['생년월일'] = temp_df['생년월일'].astype(str).str.zfill(6)
+
+#                     if "연락처" in temp_df.columns:
+#                         temp_df["연락처"] = temp_df["연락처"].apply(format_phone)
+
+#                     all_dfs.append(temp_df)
+
+#                 df = pd.concat(all_dfs, ignore_index=True)
+#                 last_mtime = current_mtime
+
+#         except Exception as e:
+#             print("파일 감시 오류:", e)
+
+
 
 
 # ============================================================
@@ -144,7 +194,11 @@ def search_data(event=None):
         messagebox.showerror("오류", f"'{category}' 항목이 엑셀 파일에 없습니다.")
         return
 
-    filtered = df[df[category].str.contains(search_term, case=False, na=False, regex=False)]
+    # filtered = df[df[category].str.contains(search_term, case=False, na=False, regex=False)]
+    filtered = df[df[category].str.contains(
+        search_term, case=False, na=False, regex=False
+    )]
+
 
     if filtered.empty:
         messagebox.showinfo("검색 결과", f"'{search_term}'에 대한 검색 결과가 없습니다.")
@@ -164,7 +218,7 @@ def search_data(event=None):
 
     cols = [
         '부모이름', '생년월일', '임신부/부모', '임신확인일/출산예정일',
-        '영아이름', '영아생년월일', '주소', '연락처'
+        '영아이름', '영아생년월일', '주소', '연락처', '신청년도'
     ]
     existing_cols = [col for col in cols if col in filtered.columns]
 
@@ -178,6 +232,8 @@ def search_data(event=None):
     for col in existing_cols:
         if col == "주소":
             tree.column(col, width=450)
+        elif col == "신청년도":
+            tree.column(col, width=120)
         elif col == "연락처":
             tree.column(col, width=130)
         else:
@@ -185,8 +241,16 @@ def search_data(event=None):
         tree.heading(col, text=col)
 
     # 데이터 삽입
-    for _, row in filtered.iterrows():
-        tree.insert("", "end", values=[row[col] for col in existing_cols])
+    # for _, row in filtered.iterrows():
+    #     tree.insert("", "end", values=[row[col] for col in existing_cols])
+    # 데이터 삽입 (속도 개선 버전)
+    rows = [
+        [row[col] for col in existing_cols]
+        for _, row in filtered.iterrows()
+    ]
+
+    for row in rows:
+        tree.insert("", "end", values=row)
 
 
 # ============================================================
@@ -212,9 +276,9 @@ search_button.pack(pady=12)
 root.bind("<Return>", search_data)
 
 # ============================================================
-# 엑셀 로딩 + 감시 쓰레드 실행
+# 엑셀 로딩(메인) + 감시 쓰레드(백그라운드) 실행
 # ============================================================
-threading.Thread(target=load_excel, daemon=True).start()
-threading.Thread(target=watch_file, daemon=True).start()
+load_excel()
+# threading.Thread(target=watch_file, daemon=True).start()
 
 root.mainloop()
